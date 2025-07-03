@@ -35,7 +35,9 @@ This document provides an overview of all scripts in the Oracle Cloud ScreenConn
 - **`release.ps1`** - Release automation and versioning
 
 ### 🔄 **Migration Tools**
-- **`migration-plan.ps1`** - AWS to Oracle Cloud migration planning
+- **`backup-screenconnect-simple.ps1`** - **Working backup script** for AWS server
+- **`restore-screenconnect-simple.ps1`** - **Working restore script** for Oracle Cloud
+- **`migration-plan.ps1`** - AWS to Oracle Cloud migration planning (⚠️ has syntax issues)
 - **`aws-migration-assistant.ps1`** - Advanced migration configuration comparison
 
 ## 📋 **Script Usage Examples**
@@ -75,13 +77,13 @@ This document provides an overview of all scripts in the Oracle Cloud ScreenConn
 
 ### Migration
 ```powershell
-# Create migration plan
-.\scripts\migration-plan.ps1 -Action "plan" -SourceServer "your-aws-server.com"
+# Create backup on AWS server
+.\scripts\backup-screenconnect-simple.ps1
 
-# Generate backup script
-.\scripts\migration-plan.ps1 -Action "backup" -SourceServer "your-aws-server.com"
+# Restore on Oracle Cloud instance
+.\scripts\restore-screenconnect-simple.ps1 -BackupPath "C:\path\to\backup-file.zip"
 
-# Compare configurations
+# Compare configurations (advanced)
 .\scripts\aws-migration-assistant.ps1 -SourceConfig "aws-config.json" -TargetConfig "oracle-config.json"
 ```
 

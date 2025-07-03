@@ -1,0 +1,72 @@
+# Oracle Cloud ScreenConnect Deployment - Example Configuration
+# Copy this file to terraform.tfvars and fill in your values
+
+# Oracle Cloud Configuration
+tenancy_ocid     = "ocid1.tenancy.oc1..your-tenancy-ocid"
+compartment_ocid = "ocid1.compartment.oc1..your-compartment-ocid"
+user_ocid        = "ocid1.user.oc1..your-user-ocid"
+fingerprint      = "your-fingerprint"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+
+# SSH Configuration
+ssh_public_key_path = "~/.ssh/id_rsa.pub"  # Path to your SSH public key
+
+# Project Configuration
+project_name = "screenconnect"
+environment  = "production"
+
+# Network Configuration
+vcn_cidr_block    = "10.0.0.0/16"
+subnet_cidr_block = "10.0.1.0/24"
+
+# RDP Access Configuration
+enable_rdp_access = true
+auto_detect_home_ip = true  # Set to false if you want to manually specify IPs
+
+# Your home IP addresses (CIDR notation)
+# Use the get-home-ips.ps1 script to detect your current IPs
+additional_rdp_ips = [
+  # "203.0.113.1/32",  # Example: Primary WAN IP
+  # "198.51.100.1/32", # Example: Secondary WAN IP
+  # "192.0.2.1/32",    # Example: VPN IP
+]
+
+# Secrets Management Configuration
+# SECURITY: Set to true to store sensitive values in Oracle Vault (recommended)
+use_vault_for_secrets = true
+
+# Compute Configuration - Optimized for cost
+instance_shape = "VM.Standard.A1.Flex"
+ocpus          = 1
+memory_in_gbs  = 6
+
+# ScreenConnect Configuration
+# SECURITY: These values will be stored in Oracle Vault if use_vault_for_secrets = true
+# Otherwise, they will be stored in Terraform state (less secure)
+screenconnect_license_key = "your-screenconnect-license-key"
+admin_password           = "your-admin-password"
+
+# Domain Configuration
+primary_domain = "remotesupport.yourdomain.com"  # Web UI domain (can be changed)
+relay_domain   = "relay.yourdomain.com"  # Relay domain (can be changed)
+
+# Cloudflare Configuration
+# SECURITY: These values will be stored in Oracle Vault if use_vault_for_secrets = true
+# Otherwise, they will be stored in Terraform state (less secure)
+cloudflare_api_token = "your-cloudflare-api-token"
+cloudflare_zone_id   = "your-cloudflare-zone-id"
+enable_cloudflare_proxy = true
+cloudflare_ssl_mode = "full"
+
+# Backup Configuration
+backup_bucket_name = "screenconnect-backups"
+backup_retention   = 5
+
+# Tags
+tags = {
+  Project     = "screenconnect"
+  Environment = "production"
+  Purpose     = "remote-support"
+  Owner       = "your-name"
+} 

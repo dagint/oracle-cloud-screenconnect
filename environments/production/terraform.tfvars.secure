@@ -1,0 +1,78 @@
+# Oracle Cloud ScreenConnect Deployment - SECURE CONFIGURATION
+# This file contains sensitive configuration values
+# DO NOT commit this file to version control
+# Copy this file to terraform.tfvars and fill in your actual values
+
+# Oracle Cloud Configuration
+# Get these values from your Oracle Cloud Console
+tenancy_ocid     = "ocid1.tenancy.oc1..your-tenancy-ocid"
+compartment_ocid = "ocid1.compartment.oc1..your-compartment-ocid"
+user_ocid        = "ocid1.user.oc1..your-user-ocid"
+fingerprint      = "your-fingerprint-here"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+
+# SSH Configuration
+# Path to your public SSH key for instance access
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Project Configuration
+project_name = "screenconnect"
+environment  = "production"
+
+# Network Configuration
+# Use different CIDR blocks for each environment
+vcn_cidr_block    = "10.0.0.0/16"
+subnet_cidr_block = "10.0.1.0/24"
+
+# RDP Access Configuration
+# SECURITY: Only allow access from your specific IP addresses
+enable_rdp_access = true
+auto_detect_home_ip = true
+additional_rdp_ips = [
+  "203.0.113.1/32",  # Replace with your primary WAN IP
+  "198.51.100.1/32", # Replace with your secondary WAN IP
+  # Add more IPs as needed
+]
+
+# Secrets Management Configuration
+# SECURITY: Always use Oracle Vault for production
+use_vault_for_secrets = true
+
+# Compute Configuration
+# Adjust based on your needs and budget
+instance_shape = "VM.Standard.A1.Flex"
+ocpus          = 1
+memory_in_gbs  = 6
+
+# ScreenConnect Configuration
+# SECURITY: These will be stored in Oracle Vault if use_vault_for_secrets = true
+screenconnect_license_key = "your-screenconnect-license-key"
+admin_password           = "your-secure-admin-password"
+
+# Domain Configuration
+# Replace with your actual domains
+primary_domain = "remotesupport.yourdomain.com"  # Main ScreenConnect web UI
+relay_domain   = "relay.yourdomain.com"  # ScreenConnect relay
+
+# Cloudflare Configuration
+# SECURITY: Use API token, not global API key
+cloudflare_api_token = "your-cloudflare-api-token"
+cloudflare_zone_id   = "your-cloudflare-zone-id"
+enable_cloudflare_proxy = true
+cloudflare_ssl_mode = "full"
+
+# Backup Configuration
+# Use environment-specific bucket names
+backup_bucket_name = "screenconnect-backups-production"
+backup_retention   = 5
+
+# Tags for resource organization
+tags = {
+  Project     = "screenconnect"
+  Environment = "production"
+  Purpose     = "remote-support"
+  Owner       = "your-name"
+  CostCenter  = "your-cost-center"
+  ManagedBy   = "terraform"
+} 

@@ -1,0 +1,75 @@
+# Terraform files with sensitive data
+*.tfvars
+!*.tfvars.example
+!*.tfvars.secure
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Oracle Cloud credentials
+*.pem
+*.key
+oci_config
+
+# SSH keys
+id_rsa
+id_rsa.pub
+*.ppk
+
+# Backup files
+backups/
+*.scb
+*.zip
+*.tar.gz
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# PowerShell temporary files
+*.ps1.tmp
+
+# Environment-specific files
+environments/*/terraform.tfvars
+environments/*/secrets/
+
+# Release files
+RELEASE_NOTES_*.md
+DEPLOYMENT_SUMMARY_*.md
+
+# Local configuration
+local_config/
+.env
+.env.local
+
+# Test files
+test_output/
+coverage/
+
+# Documentation builds
+docs/_build/
+site/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db 

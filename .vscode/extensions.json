@@ -1,0 +1,16 @@
+{
+    "recommendations": [
+        "ms-vscode.powershell",
+        "ms-vscode.vscode-json",
+        "hashicorp.terraform",
+        "ms-vscode.powershell-preview",
+        "ms-vscode.powershell-universal",
+        "ms-vscode.vscode-yaml",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-markdownlint",
+        "davidanson.vscode-markdownlint",
+        "streetsidesoftware.code-spell-checker",
+        "ms-vscode.vscode-git-graph",
+        "eamodio.gitlens"
+    ]
+} 

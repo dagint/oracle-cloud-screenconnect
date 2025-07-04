@@ -1,5 +1,6 @@
 # Simple ScreenConnect Backup Script for Migration
 # Run this on your AWS ScreenConnect server
+# Fixed version - resolves syntax errors
 
 param(
     [string]$BackupPath = "C:\ScreenConnect-Backup"

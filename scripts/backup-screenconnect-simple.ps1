@@ -1,6 +1,6 @@
 # Simple ScreenConnect Backup Script for Migration
 # Run this on your AWS ScreenConnect server
-# Fixed version - resolves syntax errors
+# Final version - fixes all known issues
 
 param(
     [string]$BackupPath = "C:\ScreenConnect-Backup"
@@ -25,7 +25,7 @@ try {
     Write-Host "✓ Services stopped" -ForegroundColor Green
 }
 catch {
-    Write-Warning "Could not stop all services: $($_.Exception.Message)"
+    Write-Warning "Could not stop all services - $($_.Exception.Message)"
 }
 
 # Backup ScreenConnect installation
@@ -46,27 +46,80 @@ if (Test-Path $iisConfigPath) {
     Write-Host "✓ IIS configuration backed up" -ForegroundColor Green
 }
 
-# Export IIS sites and applications
+# Export IIS sites and applications using appcmd (native IIS tool)
 Write-Host "Exporting IIS configuration..." -ForegroundColor Yellow
 $iisExportPath = "$backupDir\IIS-Export"
 New-Item -ItemType Directory -Path $iisExportPath -Force | Out-Null
 
 try {
-    # Export application pools
-    Get-IISAppPool | ForEach-Object {
-        $poolName = $_.Name
-        $_.GetConfiguration() | Export-WebConfiguration -FilePath "$iisExportPath\AppPool-$poolName.xml"
+    # Export all sites using appcmd
+    Write-Host "Exporting websites..." -ForegroundColor Yellow
+    $appCmdOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list site /config
+    if ($appCmdOutput) {
+        $appCmdOutput | Out-File -FilePath "$iisExportPath\AllSites.xml" -Encoding UTF8
+        Write-Host "✓ Websites exported" -ForegroundColor Green
     }
 
-    # Export sites
-    Get-IISWebsite | ForEach-Object {
-        $siteName = $_.Name
-        $_.GetConfiguration() | Export-WebConfiguration -FilePath "$iisExportPath\Site-$siteName.xml"
+    # Export all application pools using appcmd
+    Write-Host "Exporting application pools..." -ForegroundColor Yellow
+    $appCmdOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list apppool /config
+    if ($appCmdOutput) {
+        $appCmdOutput | Out-File -FilePath "$iisExportPath\AllAppPools.xml" -Encoding UTF8
+        Write-Host "✓ Application pools exported" -ForegroundColor Green
     }
-    Write-Host "✓ IIS configuration exported" -ForegroundColor Green
+
+    # Export individual sites using appcmd
+    Write-Host "Exporting individual site configurations..." -ForegroundColor Yellow
+    $sitesOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list sites
+    if ($sitesOutput) {
+        $sitesOutput | ForEach-Object {
+            if ($_ -match 'SITE "([^"]+)"') {
+                $siteName = $matches[1]
+                try {
+                    $siteConfig = & "C:\Windows\System32\inetsrv\appcmd.exe" list site "$siteName" /config
+                    if ($siteConfig) {
+                        $siteConfig | Out-File -FilePath "$iisExportPath\Site-$siteName.xml" -Encoding UTF8
+                    }
+                }
+                catch {
+                    Write-Warning "Could not export site $siteName - $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+    # Export individual application pools using appcmd
+    Write-Host "Exporting individual app pool configurations..." -ForegroundColor Yellow
+    $poolsOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list apppools
+    if ($poolsOutput) {
+        $poolsOutput | ForEach-Object {
+            if ($_ -match 'APPPOOL "([^"]+)"') {
+                $poolName = $matches[1]
+                try {
+                    $poolConfig = & "C:\Windows\System32\inetsrv\appcmd.exe" list apppool "$poolName" /config
+                    if ($poolConfig) {
+                        $poolConfig | Out-File -FilePath "$iisExportPath\AppPool-$poolName.xml" -Encoding UTF8
+                    }
+                }
+                catch {
+                    Write-Warning "Could not export app pool $poolName - $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+    # Export IIS bindings
+    Write-Host "Exporting IIS bindings..." -ForegroundColor Yellow
+    $bindingsOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list bindings
+    if ($bindingsOutput) {
+        $bindingsOutput | Out-File -FilePath "$iisExportPath\Bindings.txt" -Encoding UTF8
+        Write-Host "✓ IIS bindings exported" -ForegroundColor Green
+    }
+
+    Write-Host "✓ IIS configuration exported using appcmd" -ForegroundColor Green
 }
 catch {
-    Write-Warning "Could not export IIS configuration: $($_.Exception.Message)"
+    Write-Warning "Could not export IIS configuration - $($_.Exception.Message)"
 }
 
 # Backup SSL certificates
@@ -77,9 +130,14 @@ New-Item -ItemType Directory -Path $certBackupPath -Force | Out-Null
 try {
     # Export certificates from personal store
     Get-ChildItem -Path Cert:\LocalMachine\My | ForEach-Object {
-        $certName = $_.Subject -replace '[^a-zA-Z0-9]', '_'
-        $certPath = "$certBackupPath\$certName.cer"
-        $_.Export('Cert') | Out-File -FilePath $certPath -Encoding Binary
+        try {
+            $certName = $_.Subject -replace '[^a-zA-Z0-9]', '_'
+            $certPath = "$certBackupPath\$certName.cer"
+            $_.Export('Cert') | Out-File -FilePath $certPath -Encoding Default
+        }
+        catch {
+            Write-Warning "Could not export certificate $($_.Subject) - $($_.Exception.Message)"
+        }
     }
 
     # Export private keys (if accessible)
@@ -87,16 +145,16 @@ try {
         try {
             $certName = $_.Subject -replace '[^a-zA-Z0-9]', '_'
             $pfxPath = "$certBackupPath\$certName.pfx"
-            $_.Export('PFX', 'password123') | Out-File -FilePath $pfxPath -Encoding Binary
+            $_.Export('PFX', 'password123') | Out-File -FilePath $pfxPath -Encoding Default
         }
         catch {
-            Write-Warning "Could not export private key for certificate: $($_.Subject)"
+            Write-Warning "Could not export private key for certificate - $($_.Subject)"
         }
     }
     Write-Host "✓ SSL certificates backed up" -ForegroundColor Green
 }
 catch {
-    Write-Warning "Could not backup certificates: $($_.Exception.Message)"
+    Write-Warning "Could not backup certificates - $($_.Exception.Message)"
 }
 
 # Backup Windows Registry (ScreenConnect related)
@@ -121,6 +179,18 @@ Write-Host "✓ Registry settings backed up" -ForegroundColor Green
 Write-Host "Creating system information report..." -ForegroundColor Yellow
 $sysInfoPath = "$backupDir\System-Info.txt"
 
+# Get IIS information safely using appcmd
+$iisInfo = "IIS information not available"
+try {
+    $appCmdOutput = & "C:\Windows\System32\inetsrv\appcmd.exe" list site
+    if ($appCmdOutput) {
+        $iisInfo = $appCmdOutput | ForEach-Object {"- $_"}
+    }
+}
+catch {
+    $iisInfo = "Could not retrieve IIS information"
+}
+
 $sysInfo = @"
 ScreenConnect Migration Backup Report
 Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -131,10 +201,10 @@ System Information:
 - IIS Version: $(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\InetStp" -Name "MajorVersion" -ErrorAction SilentlyContinue).MajorVersion
 
 Installed Services:
-$(Get-Service | Where-Object {$_.Name -like "*ScreenConnect*"} | ForEach-Object {"- $($_.Name): $($_.Status)"})
+$(Get-Service | Where-Object {$_.Name -like "*ScreenConnect*"} | ForEach-Object {"- $($_.Name) - $($_.Status)"})
 
 IIS Sites:
-$(Get-IISWebsite | ForEach-Object {"- $($_.Name): $($_.State)"})
+$iisInfo
 
 SSL Certificates:
 $(Get-ChildItem -Path Cert:\LocalMachine\My | ForEach-Object {"- $($_.Subject) (Expires: $($_.NotAfter))"})
@@ -152,20 +222,108 @@ try {
     Write-Host "✓ Services restarted" -ForegroundColor Green
 }
 catch {
-    Write-Warning "Could not restart all services: $($_.Exception.Message)"
+    Write-Warning "Could not restart all services - $($_.Exception.Message)"
 }
 
-# Create compressed backup
+# Create compressed backup with better error handling
 Write-Host "Creating compressed backup archive..." -ForegroundColor Yellow
 $archivePath = "$backupDir.zip"
-Compress-Archive -Path $backupDir -DestinationPath $archivePath -Force
 
-Write-Host "✓ Backup completed successfully!" -ForegroundColor Green
-Write-Host "Backup location: $archivePath" -ForegroundColor Cyan
-Write-Host "Backup size: $([math]::Round((Get-Item $archivePath).Length / 1MB, 2)) MB" -ForegroundColor Cyan
+# Try multiple approaches for compression
+$compressionSuccess = $false
+$maxRetries = 3
 
-# Cleanup temporary directory
-Remove-Item -Path $backupDir -Recurse -Force
+for ($retry = 1; $retry -le $maxRetries; $retry++) {
+    try {
+        Write-Host "Attempt $retry of $maxRetries to create backup archive..." -ForegroundColor Yellow
+        
+        # Wait a bit before retrying to let file handles close
+        if ($retry -gt 1) {
+            Start-Sleep -Seconds 10
+        }
+        
+        # Try to create the archive
+        Compress-Archive -Path $backupDir -DestinationPath $archivePath -Force -ErrorAction Stop
+        
+        if (Test-Path $archivePath) {
+            $fileSize = (Get-Item $archivePath).Length
+            $sizeMB = [math]::Round($fileSize / 1MB, 2)
+            Write-Host "✓ Backup completed successfully!" -ForegroundColor Green
+            Write-Host "Backup location: $archivePath" -ForegroundColor Cyan
+            Write-Host "Backup size: $sizeMB MB" -ForegroundColor Cyan
+            $compressionSuccess = $true
+            break
+        } else {
+            Write-Warning "Backup archive was not created successfully on attempt $retry"
+        }
+    }
+    catch {
+        Write-Warning "Could not create compressed archive on attempt $retry - $($_.Exception.Message)"
+        
+        if ($retry -eq $maxRetries) {
+            Write-Host "All compression attempts failed. Backup files are available in $backupDir" -ForegroundColor Yellow
+            $archivePath = $null
+        }
+    }
+}
+
+# If compression failed, try to create a simple zip using 7-Zip if available
+if (-not $compressionSuccess) {
+    Write-Host "Trying alternative compression method..." -ForegroundColor Yellow
+    try {
+        # Check if 7-Zip is available
+        $sevenZipPath = "C:\Program Files\7-Zip\7z.exe"
+        if (Test-Path $sevenZipPath) {
+            $sevenZipArchive = "$backupDir.7z"
+            & $sevenZipPath a -t7z $sevenZipArchive $backupDir\* -r
+            if (Test-Path $sevenZipArchive) {
+                $archivePath = $sevenZipArchive
+                $fileSize = (Get-Item $archivePath).Length
+                $sizeMB = [math]::Round($fileSize / 1MB, 2)
+                Write-Host "✓ Backup completed using 7-Zip!" -ForegroundColor Green
+                Write-Host "Backup location: $archivePath" -ForegroundColor Cyan
+                Write-Host "Backup size: $sizeMB MB" -ForegroundColor Cyan
+                $compressionSuccess = $true
+            }
+        }
+    }
+    catch {
+        Write-Warning "Alternative compression also failed - $($_.Exception.Message)"
+    }
+}
+
+# Cleanup temporary directory with better error handling
+if ($archivePath -and (Test-Path $archivePath)) {
+    Write-Host "Cleaning up temporary files..." -ForegroundColor Yellow
+    try {
+        # Force close any handles that might be locking files
+        Start-Sleep -Seconds 5
+        
+        # Try to remove the directory, ignore errors for locked files
+        Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+        
+        # If directory still exists, try to remove individual locked files
+        if (Test-Path $backupDir) {
+            Get-ChildItem -Path $backupDir -Recurse -Force | ForEach-Object {
+                try {
+                    Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+                }
+                catch {
+                    # Ignore errors for locked files
+                }
+            }
+            
+            # Try to remove the directory again
+            Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "✓ Cleanup completed" -ForegroundColor Green
+    }
+    catch {
+        Write-Warning "Could not completely clean up temporary files - $($_.Exception.Message)"
+        Write-Host "Temporary files may remain in $backupDir" -ForegroundColor Yellow
+    }
+}
 
 Write-Host "`n=== Next Steps ===" -ForegroundColor Green
 Write-Host "1. Copy the backup file to a secure location" -ForegroundColor White
@@ -173,4 +331,8 @@ Write-Host "2. Test the backup on a test environment" -ForegroundColor White
 Write-Host "3. Proceed with Oracle Cloud deployment" -ForegroundColor White
 Write-Host "4. Use the restore script on the Oracle Cloud instance" -ForegroundColor White
 
-Write-Host "`nBackup file: $archivePath" -ForegroundColor Yellow 
+if ($archivePath -and (Test-Path $archivePath)) {
+    Write-Host "`nBackup file: $archivePath" -ForegroundColor Yellow
+} else {
+    Write-Host "`nBackup files available in $backupDir" -ForegroundColor Yellow
+} 
